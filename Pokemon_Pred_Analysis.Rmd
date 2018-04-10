@@ -1,0 +1,164 @@
+---
+title: "stat445project"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Install packages needed.
+```{r}
+install.packages("caret")
+install.packages("ggplot2")
+library(caret)
+library(ggplot2)
+```
+
+
+## Importing the datasets
+
+```{r}
+setwd("/Users/justinlew/Documents/SFU/STAT445/project/pokemon-challenge")
+getwd()
+combats <- read.csv("combats.csv")
+pokemon <- read.csv("pokemon.csv")
+tests <- read.csv("tests.csv")
+combats2 <- read.csv("combats.csv")
+tests
+head(combats)
+head(pokemon)
+head(tests)
+combats$HP <- NA
+combats$Attack <- NA
+combats$Defense <- NA
+combats$Sp..Atk <- NA
+combats$Sp..Def <- NA
+combats$Speed <- NA
+combats$Total <- NA
+combats$Result <- NA
+for (row in 1:nrow(combats)) {
+  #if the first pokemon won
+  if (combats[row, 3] == combats[row, 1]) {
+    combats[row, ]$HP <- pokemon[pokemon$X.==combats[row, 3],]$HP - pokemon[pokemon$X.==combats[row, 2],]$HP
+    combats[row, ]$Attack <- pokemon[pokemon$X.==combats[row, 3],]$Attack - pokemon[pokemon$X.==combats[row, 2],]$Attack
+    combats[row, ]$Defense <- pokemon[pokemon$X.==combats[row, 3],]$Defense - pokemon[pokemon$X.==combats[row, 2],]$Defense
+    combats[row, ]$Sp..Atk <- pokemon[pokemon$X.==combats[row, 3],]$Sp..Atk - pokemon[pokemon$X.==combats[row, 2],]$Sp..Atk
+    combats[row, ]$Sp..Def <- pokemon[pokemon$X.==combats[row, 3],]$Sp..Def - pokemon[pokemon$X.==combats[row, 2],]$Sp..Def
+    combats[row, ]$Speed <- pokemon[pokemon$X.==combats[row, 3],]$Speed - pokemon[pokemon$X.==combats[row, 2],]$Speed
+    combats[row, ]$Result <- 0
+  } else {
+    #if the second pokemon won
+    combats[row, ]$HP <- pokemon[pokemon$X.==combats[row, 3],]$HP - pokemon[pokemon$X.==combats[row, 1],]$HP
+    combats[row, ]$Attack <- pokemon[pokemon$X.==combats[row, 3],]$Attack - pokemon[pokemon$X.==combats[row, 1],]$Attack
+    combats[row, ]$Defense <- pokemon[pokemon$X.==combats[row, 3],]$Defense - pokemon[pokemon$X.==combats[row, 1],]$Defense
+    combats[row, ]$Sp..Atk <- pokemon[pokemon$X.==combats[row, 3],]$Sp..Atk - pokemon[pokemon$X.==combats[row, 1],]$Sp..Atk
+    combats[row, ]$Sp..Def <- pokemon[pokemon$X.==combats[row, 3],]$Sp..Def - pokemon[pokemon$X.==combats[row, 1],]$Sp..Def
+    combats[row, ]$Speed <- pokemon[pokemon$X.==combats[row, 3],]$Speed - pokemon[pokemon$X.==combats[row, 1],]$Speed
+    combats[row, ]$Result <- 1
+  }
+  
+}
+
+
+combats$Result <- factor(combats$Result)
+logisticRegression <- glm(Result ~ HP + Attack + Defense + Sp..Atk + Sp..Def + Speed, data = combats, family = "binomial")
+summary(logisticRegression)
+predict(logisticRegression, newdata = test)
+
+```
+
+## Manipulating the test dataset
+
+
+```{r}
+calcDiff <- function(arr) {
+  counter <- 0
+  arr$HP <- NA
+  arr$Attack <- NA
+  arr$Defense <- NA
+  arr$Sp..Atk <- NA
+  arr$Sp..Def <- NA
+  arr$Speed <- NA
+  arr$Total <- NA
+  arr$Result <- NA
+  for (row in 1:nrow(arr)) {
+      arr[row, ]$HP <- pokemon[pokemon$X.==arr[row, 1],]$HP - pokemon[pokemon$X.==arr[row, 2],]$HP
+      arr[row, ]$Attack <- pokemon[pokemon$X.==arr[row, 1],]$Attack - pokemon[pokemon$X.==arr[row, 2],]$Attack
+      arr[row, ]$Defense <- pokemon[pokemon$X.==arr[row, 1],]$Defense - pokemon[pokemon$X.==arr[row, 2],]$Defense
+      arr[row, ]$Sp..Atk <- pokemon[pokemon$X.==arr[row, 1],]$Sp..Atk - pokemon[pokemon$X.==arr[row, 2],]$Sp..Atk
+      arr[row, ]$Sp..Def <- pokemon[pokemon$X.==arr[row, 1],]$Sp..Def - pokemon[pokemon$X.==arr[row, 2],]$Sp..Def
+      arr[row, ]$Speed <- pokemon[pokemon$X.==arr[row, 1],]$Speed - pokemon[pokemon$X.==arr[row, 2],]$Speed
+      if (arr[row, 1] == arr[row, 3]) {
+        #result is 1 if the first Pokemon who attacks first wins
+        arr[row, ]$Result <- 1
+      } else {
+        arr[row, ]$Result <- 0
+      }
+      if (row %% 1000 == 0) {
+        counter <- counter + 1
+        print(counter)
+      }
+  }
+  return(arr)
+}
+combats <- calcDiff(combats)
+
+```
+
+Split into training and test set.
+```{r}
+sampleSize <- floor(0.75 * nrow(combats))
+set.seed(123)
+train_indices <- sample(seq_len(nrow(combats)), size = sampleSize)
+
+train <- combats[train_indices,]
+test <- combats[-train_indices,]
+```
+
+```{r}
+
+```
+
+
+
+Perform logistic regression on training set.
+```{r}
+install.packages("e1071")
+library(e1071)
+train$Result <- factor(train$Result)
+test$Result <- factor(test$Result)
+logisticRegression <- glm(Result ~ HP + Attack + Defense + Sp..Atk + Sp..Def + Speed, data = train, family = "binomial")
+summary(logisticRegression)
+logisticPrediction <- round(predict(logisticRegression, newdata = test, type="response"))
+confusionMatrix(logisticPrediction, test$Result)
+test$Sample <- logisticPrediction
+
+ggplot(test, aes(x=Sp..Def, y=Sample)) + geom_point() + stat_smooth(method="glm", method.args=list(family="binomial"), se=FALSE)
+```
+
+
+
+```{r}
+install.packages("class")
+library(class)
+```
+
+```{r}
+training <- train
+testing <- test
+training$Total <- NULL
+testing$Total <- NULL
+training$Result <- NULL
+training$First_pokemon <- NULL
+training$Second_pokemon <- NULL
+training$Winner <- NULL
+testing$Result <- NULL
+testing$First_pokemon <- NULL
+testing$Second_pokemon <- NULL
+testing$Winner <- NULL
+knn <- knn(train=training, test=testing, cl = train$Result, k=2, prob=TRUE)
+sum(knn == test$Result)/12500
+table(knn, test$Result)
+```
+
